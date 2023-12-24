@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,6 +31,7 @@ public class InvitationController {
     
     // Obtenir toutes les invitation avec pagination
     @GetMapping
+    @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<Page<Invitation>> obtenirToutesLesInvitations(Pageable pageable) {
         Page<Invitation> invitations = invitationService.obtenirToutesLesInvitations(pageable);
         return new ResponseEntity<>(invitations, HttpStatus.OK);
@@ -37,6 +39,7 @@ public class InvitationController {
 
     // Obtenir une invitation par son ID
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<Invitation> obtenirInvitationParId(@PathVariable Long id) {
     	Invitation invitation = invitationService.obtenirInvitationParId(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Invitation non trouvé"));
@@ -45,6 +48,7 @@ public class InvitationController {
 
     // Ajouter une invitation
     @PostMapping
+    @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<Invitation> ajouterInvitation(@RequestBody Invitation invitation) {
     	Invitation invitationEnregistre = invitationService.ajouterInvitation(invitation);
         return new ResponseEntity<>(invitationEnregistre, HttpStatus.CREATED);
@@ -52,6 +56,7 @@ public class InvitationController {
 
     // Mettre à jour une invitation
     @PatchMapping("/{id}")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<Invitation> mettreAJourInvitation(@PathVariable Long id, @RequestBody Invitation detailsInvitation) {
     	Invitation invitationMisAJour = invitationService.mettreAJourInvitation(id, detailsInvitation);
         return new ResponseEntity<>(invitationMisAJour, HttpStatus.OK);
@@ -59,6 +64,7 @@ public class InvitationController {
 
     // Supprimer une invitation
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<Void> supprimerInvitation(@PathVariable Long id) {
     	invitationService.supprimerInvitation(id);
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
