@@ -1,114 +1,144 @@
 package fr.quiniou.gestion_back.contact;
 
-import java.util.Collection;
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import fr.quiniou.gestion_back.appartement.Appartement;
 import fr.quiniou.gestion_back.appartement.AppartementRepository;
-import fr.quiniou.gestion_back.security.CustomUtilisateurDetails;
+import fr.quiniou.gestion_back.auth.PermissionsByRolesService;
+import fr.quiniou.gestion_back.contact.dto.ContactDTOForAdmin;
+import fr.quiniou.gestion_back.contact.dto.ContactDTOForOtherAdmin;
+import fr.quiniou.gestion_back.frais.FraisRepository;
 import fr.quiniou.gestion_back.utilisateur.Utilisateur;
 import fr.quiniou.gestion_back.utilisateur.UtilisateurRepository;
 
 @Service
-public class ContactPermissionsService {
-    private final ContactRepository contactRepository;
-    private final AppartementRepository appartementRepository;
-    private final UtilisateurRepository utilisateurRepository;
+public class ContactPermissionsService extends PermissionsByRolesService {
 
-    @Autowired
-    public ContactPermissionsService(
-    		ContactRepository contactRepository, 
-    		AppartementRepository appartementRepository,
-    		UtilisateurRepository utilisateurRepository) {
-        this.contactRepository = contactRepository;
-        this.appartementRepository = appartementRepository;
-        this.utilisateurRepository = utilisateurRepository;
-    }
-    
-    public boolean peutAjouterContact(Contact contact) {
-        Utilisateur currentUser = getCurrentUser();
-        Collection<? extends GrantedAuthority> authorities = SecurityContextHolder.getContext().getAuthentication().getAuthorities();
+	public ContactPermissionsService(
+			AppartementRepository appartementRepository,
+			UtilisateurRepository utilisateurRepository, 
+			ContactRepository contactRepository,
+			FraisRepository fraisRepository) {
+		super(appartementRepository, utilisateurRepository, contactRepository, fraisRepository);
+	}
 
-        // Les administrateurs peuvent ajouter des contacts à n'importe quel appartement
-        if (authorities.stream().anyMatch(a -> a.getAuthority().equals("ADMIN"))) {
-            return true;
-        }
+	public boolean peutAjouterContact(Contact contact) {
+		Utilisateur currentUser = getCurrentUser();
+		// Les administrateurs peuvent ajouter des contacts à n'importe quel appartement
+		if (isUserInRole(ROLE_ADMIN)) {
+			return true;
+		}
 
-        // Les propriétaires ne peuvent ajouter des contacts qu'à leurs propres appartements
-        if (authorities.stream().anyMatch(a -> a.getAuthority().equals("PROPRIETAIRE"))) {
-        	System.out.println(contact);
-            Long appartementId = contact.getAppartement() != null ? contact.getAppartement().getId() : null;
-            return appartementId != null && currentUser.getAppartements().stream()
-                .anyMatch(appartement -> appartement.getId().equals(appartementId));
-        }
+		// Les propriétaires ne peuvent ajouter des contacts qu'à leurs propres
+		// appartements
+		if (isUserInRole(ROLE_PROPRIETAIRE)) {
+			Long appartementId = contact.getAppartement() != null ? contact.getAppartement().getId() : null;
+			return appartementId != null && currentUser.getAppartements().stream()
+					.anyMatch(appartement -> appartement.getId().equals(appartementId));
+		}
 
-        // Les autres utilisateurs ne peuvent pas ajouter des contacts
-        return false;
-    }
+		// Les autres utilisateurs ne peuvent pas ajouter des contacts
+		return false;
+	}
 
-    public boolean peutGererContact(Long contactId) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String currentUserName = authentication.getName();
-        Collection<? extends GrantedAuthority> authorities = authentication.getAuthorities();
+	public String peutGererContact(Long contactId) {
+		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+	    String currentUserName = authentication.getName();
 
-        // Les administrateurs peuvent gérer tous les contacts
-        if (authorities.stream().anyMatch(a -> a.getAuthority().equals("ADMIN"))) {
-            return true;
-        }
+	    if (isUserInRole(ROLE_ADMIN)) {
+	        return "admin";
+	    }
 
-        // Les propriétaires peuvent gérer les contacts de leurs appartements
-        if (authorities.stream().anyMatch(a -> a.getAuthority().equals("PROPRIETAIRE"))) {
-            Optional<Contact> contact = contactRepository.findById(contactId);
-            if (contact.isPresent()) {
-                return appartementRepository.findAllByProprietaireNom(currentUserName).stream()
-                    .anyMatch(appartement -> appartement.getContacts().contains(contact.get()));
-            }
-        }
+	    if (isUserInRole(ROLE_PROPRIETAIRE)) {
+	        Optional<Contact> contact = contactRepository.findById(contactId);
+	        if (contact.isPresent()) {
+	            boolean isOwner = appartementRepository.findAllByProprietaireNom(currentUserName).stream()
+	                    .anyMatch(appartement -> appartement.getContacts().contains(contact.get()));
+	            if (isOwner) {
+	                return "proprietaire";
+	            }
+	        }
+	    }
+	    if (isUserInRole(ROLE_GESTIONNAIRE) || isUserInRole(ROLE_VIEWER)) {
+	        Optional<Contact> contact = contactRepository.findById(contactId);
+	        if (contact.isPresent()) {
+				boolean isPublic = appartementRepository.findByPublicAppartementTrue().stream()
+	                    .anyMatch(appartement -> appartement.getContacts().contains(contact.get()));
+	            if (isPublic) {
+	                return "public"; 
+	            }
+	        }
+	    }
+	    return null;
+	}
+	
 
-        // Les autres utilisateurs (gestionnaires et viewers) n'ont pas accès aux contacts
-        return false;
-    }
-    
-    public Page<Contact> obtenirContactsAutorises(Pageable pageable) {
-        Utilisateur currentUser = getCurrentUser();
-        Collection<? extends GrantedAuthority> authorities = SecurityContextHolder.getContext().getAuthentication().getAuthorities();
+	public Page<Object> obtenirContactsAutorises(Pageable pageable) {
+	    if (isUserInRole(ROLE_ADMIN)) {
+	        // Les administrateurs peuvent voir tous les contacts
+	        return contactRepository.findAll(pageable).map(this::convertToContactDTOForAdmin);
+	    } else {
+	        List<Object> contactsDtos = new ArrayList<>();
+	        Set<Long> addedContactIds = new HashSet<>(); // Ensemble pour garder une trace des ID de contact ajoutés
 
-        if (authorities.stream().anyMatch(a -> a.getAuthority().equals("ADMIN"))) {
-            // Les administrateurs peuvent voir tous les contacts
-            return contactRepository.findAll(pageable);
-        } else if (authorities.stream().anyMatch(a -> a.getAuthority().equals("PROPRIETAIRE"))) {
-            // Les propriétaires peuvent voir les contacts de leurs appartements
-            List<Long> appartementIds = currentUser.getAppartements().stream()
-                .map(Appartement::getId)
-                .collect(Collectors.toList());
-            return contactRepository.findAllByAppartementIdIn(appartementIds, pageable);
-        } else {
-            // Les autres utilisateurs n'ont pas accès aux contacts
-            return new PageImpl<>(Collections.emptyList(), pageable, 0);
-        }
-    }
-    
-    private Utilisateur getCurrentUser() {
-        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+	        if (isUserInRole(ROLE_PROPRIETAIRE)) {
+	    	    Utilisateur currentUser = getCurrentUser();
+	            // Les propriétaires peuvent voir les contacts de leurs appartements
+	            List<Long> appartementIds = currentUser.getAppartements().stream().map(Appartement::getId)
+	                    .collect(Collectors.toList());
+	            contactRepository.findAllByAppartementIdIn(appartementIds, pageable)
+	                    .forEach(contact -> {
+	                        if (addedContactIds.add(contact.getId())) { // Ajoute le contact s'il n'est pas déjà ajouté
+	                            contactsDtos.add(convertToContactDTOForOtherAdmin(contact));
+	                        }
+	                    });
+	        }
+	        
+	        List<Appartement> publicAppartements = appartementRepository.findByPublicAppartementTrue();
+	        for (Appartement appartement : publicAppartements) {
+	            for (Contact contact : appartement.getContacts()) {
+	                if (addedContactIds.add(contact.getId())) { // Vérifie si l'ID du contact n'est pas déjà ajouté
+	                    contactsDtos.add(convertToContactDTOForOtherAdmin(contact));
+	                }
+	            }
+	        }
+	        return new PageImpl<>(contactsDtos, pageable, contactsDtos.size());
+	    }
+	}
 
-        if (principal instanceof CustomUtilisateurDetails) {
-            Long userId = ((CustomUtilisateurDetails) principal).getId();
-            return utilisateurRepository.findById(userId).orElse(null);
-        }
+	public ContactDTOForAdmin convertToContactDTOForAdmin(Contact contact) {
+		ContactDTOForAdmin dto = new ContactDTOForAdmin();
 
-        return null; 
-    }
+		dto.setId(contact.getId());
+		dto.setNom(contact.getNom());
+		dto.setEmail(contact.getEmail());
+		dto.setTelNumero(contact.getTelNumero());
+		dto.setAppartementId(contact.getAppartement().getId());
+
+		return dto;
+	}
+
+	public ContactDTOForOtherAdmin convertToContactDTOForOtherAdmin(Contact contact) {
+		ContactDTOForOtherAdmin dto = new ContactDTOForOtherAdmin();
+
+		dto.setNom(contact.getNom());
+		dto.setEmail(contact.getEmail());
+		dto.setTelNumero(contact.getTelNumero());
+		dto.setAppartementId(contact.getAppartement().getId());
+
+		return dto;
+	}
+
 }
-

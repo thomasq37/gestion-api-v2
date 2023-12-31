@@ -1,4 +1,4 @@
-package fr.quiniou.gestion_back.appartement;
+package fr.quiniou.gestion_back.appartement.adresse;
 
 import jakarta.persistence.Embeddable;
 import lombok.Data;
@@ -7,7 +7,7 @@ import lombok.Data;
 @Data
 public class Adresse {
     private Integer numero;
-    private String adresse;
+    private String voie;
     private String codePostal;
     private String ville;
     private String pays;

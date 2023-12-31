@@ -1,6 +1,7 @@
-package fr.quiniou.gestion_back.contact;
+package fr.quiniou.gestion_back.frais;
 
 import fr.quiniou.gestion_back.appartement.Appartement;
+import fr.quiniou.gestion_back.periode_location.PeriodeLocation;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -9,18 +10,22 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import lombok.Data;
 
-@Data
 @Entity
-public class Contact {
-
+@Data
+public class Frais {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
-	private String nom;
-	private String email;
-	private String telNumero;
+	private String type;
+	private Integer montant;
+	private Integer frequence;
+	private String debiteur;
 
 	@ManyToOne
-	@JoinColumn(name = "appartement_id")
+	@JoinColumn(name = "periode_location_id", nullable = true)
+	private PeriodeLocation periodeLocation;
+
+	@ManyToOne
+	@JoinColumn(name = "appartement_id", nullable = true)
 	private Appartement appartement;
 }

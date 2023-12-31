@@ -11,6 +11,4 @@ import org.springframework.stereotype.Repository;
 public interface ContactRepository extends JpaRepository<Contact, Long> {
 
 	Page<Contact> findAllByAppartementIdIn(List<Long> appartementIds, Pageable pageable);
-
-	// étends des méhodes de JpaRepository
 }

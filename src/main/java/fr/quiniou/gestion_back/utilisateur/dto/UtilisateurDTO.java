@@ -1,4 +1,4 @@
-package fr.quiniou.gestion_back.utilisateur;
+package fr.quiniou.gestion_back.utilisateur.dto;
 
 public class UtilisateurDTO {
     private String nom;
@@ -16,7 +16,6 @@ public class UtilisateurDTO {
     
 
     public UtilisateurDTO() {
-		// TODO Auto-generated constructor stub
 	}
 
 

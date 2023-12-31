@@ -30,9 +30,6 @@ public class CustomUtilisateurDetailsService implements UserDetailsService {
             .orElseThrow(() -> new UsernameNotFoundException("L'utilisateur n'a pas été trouvé : " + nom));
 
         // Créer une liste de GrantedAuthority à partir des rôles de l'utilisateur
-        /*List<GrantedAuthority> authorities = utilisateur.getRoles().stream()
-                .map(role -> new SimpleGrantedAuthority(role.getNom())) // Assurez-vous que getNom() renvoie le nom du rôle
-                .collect(Collectors.toList());*/
         List<GrantedAuthority> authorities;
         if (utilisateur.getRoles().isEmpty()) {
             // Attribuer le rôle par défaut si aucun rôle n'est trouvé

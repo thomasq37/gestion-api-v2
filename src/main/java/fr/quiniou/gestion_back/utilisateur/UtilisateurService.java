@@ -10,56 +10,50 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import fr.quiniou.gestion_back.auth.PermissionsByRolesService;
+import fr.quiniou.gestion_back.utilisateur.dto.UtilisateurDTOForAdmin;
+
 @Service
 public class UtilisateurService {
 	private final UtilisateurRepository utilisateurRepository;
-	
-	@Autowired
-	private UtilisateurPermissionsService customPermissionsService;
-	
+	private final UtilisateurPermissionsService utilisateursPermissionsByRolesService;
 	private final PasswordEncoder passwordEncoder;
+	private static final String USER_FORBIDDEN_MSG = "Vous n'avez pas les droits nécessaires pour accéder à cet(te) utilisateur(trice).";
+	private static final String USER_NOTFOUND_MSG = "Utilisateur(trice) introuvable.";
+
 
     @Autowired
-    public UtilisateurService(UtilisateurRepository utilisateurRepository, PasswordEncoder passwordEncoder) {
+    public UtilisateurService(UtilisateurRepository utilisateurRepository, PasswordEncoder passwordEncoder, UtilisateurPermissionsService utilisateursPermissionsByRolesService) {
         this.utilisateurRepository = utilisateurRepository;
         this.passwordEncoder = passwordEncoder;
+        this.utilisateursPermissionsByRolesService = utilisateursPermissionsByRolesService;
     }
     
     // Obtenir tous les utilisateurs avec pagination autorisés
-    public Page<UtilisateurDTO> obtenirTousLesUtilisateurs(Pageable pageable) {
-        return customPermissionsService.obtenirUtilisateursAutorises(pageable);
-    }
-    public Optional<UtilisateurDTO> obtenirUtilisateurParId(Long id) {
-        if (!customPermissionsService.peutGererUtilisateur(id, "obtenir")) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Accès refusé");
-        }
-        return utilisateurRepository.findById(id)
-                .map(customPermissionsService::convertToUtilisateurDTO); // Utilisation de la méthode de conversion du service
+    public Page<Object> obtenirTousLesUtilisateurs(Pageable pageable) {
+        return utilisateursPermissionsByRolesService.obtenirUtilisateursAutorises(pageable);
     }
     
-    // Obtenir tous les utilisateurs avec pagination admin
-    public Page<Utilisateur> obtenirTousLesUtilisateursAdmin(Pageable pageable) {
-    	if (!customPermissionsService.isAdmin()) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Accès refusé");
+    public UtilisateurDTOForAdmin obtenirUtilisateurParId(Long id) {
+        if (!utilisateursPermissionsByRolesService.peutGererUtilisateur(id, "obtenir")) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, USER_FORBIDDEN_MSG);
         }
-        return customPermissionsService.obtenirUtilisateurs(pageable);
-    }
-    public Optional<Utilisateur> obtenirUtilisateurParIdAdmin(Long id) {
-        if (!customPermissionsService.isAdmin()) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Accès refusé");
-        }
-        return utilisateurRepository.findById(id);
+        Optional<Utilisateur> optUtilisateur  = utilisateurRepository.findById(id);
+    	if(optUtilisateur.isEmpty()) {
+    		throw new ResponseStatusException(HttpStatus.NOT_FOUND, USER_NOTFOUND_MSG);
+    	}
+        return utilisateursPermissionsByRolesService.convertToUtilisateurDTOForAdmin(optUtilisateur.get());
     }
 
 
     // Mettre a jour utilisateur si autorisé
-    public Utilisateur mettreAJourUtilisateur(Long id, Utilisateur detailsUtilisateur) {
-        if (!customPermissionsService.peutGererUtilisateur(id, "mettreAJour")) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Accès refusé");
+    public UtilisateurDTOForAdmin mettreAJourUtilisateur(Long id, Utilisateur detailsUtilisateur) {
+        if (!utilisateursPermissionsByRolesService.peutGererUtilisateur(id, "maj")) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, USER_FORBIDDEN_MSG);
         }
         // Vérifier si l'utilisateur existe, puis mettre à jour
     	Utilisateur utilisateur = utilisateurRepository.findById(id)
-            .orElseThrow(() -> new IllegalStateException("Utilisateur avec ID " + id + " non trouvé"));
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, USER_NOTFOUND_MSG));
 
     	// Mettre à jour les champs non nuls
         if (detailsUtilisateur.getNom() != null) utilisateur.setNom(detailsUtilisateur.getNom());
@@ -68,20 +62,22 @@ public class UtilisateurService {
         if (detailsUtilisateur.getMdp() != null) utilisateur.setMdp(passwordEncoder.encode(detailsUtilisateur.getMdp()));
 
 
-        return utilisateurRepository.save(utilisateur);
+        Utilisateur utilisateurEnregistre = utilisateurRepository.save(utilisateur);
+        return utilisateursPermissionsByRolesService.convertToUtilisateurDTOForAdmin(utilisateurEnregistre);
     }
     
     
     // Supprimer utilisateur si autorisé
     public void supprimerUtilisateur(Long id) {
-        if (!customPermissionsService.peutGererUtilisateur(id, "supprimer")) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Accès refusé");
+        if (!utilisateursPermissionsByRolesService.peutGererUtilisateur(id, "supprimer")) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, USER_FORBIDDEN_MSG);
         }
         utilisateurRepository.deleteById(id);
     }
 
     // Ajouter un utilisateur
-    public Utilisateur ajouterUtilisateur(Utilisateur utilisateur) {
-        return utilisateurRepository.save(utilisateur);
+    public UtilisateurDTOForAdmin ajouterUtilisateur(Utilisateur utilisateur) {
+    	Utilisateur utilisateurEnregistre = utilisateurRepository.save(utilisateur);
+        return utilisateursPermissionsByRolesService.convertToUtilisateurDTOForAdmin(utilisateurEnregistre);
     }
 }

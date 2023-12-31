@@ -11,11 +11,7 @@ import fr.quiniou.gestion_back.utilisateur.Utilisateur;
 
 @Repository
 public interface AppartementRepository extends JpaRepository<Appartement, Long> {
-	// étends des méhodes de JpaRepository
-	
-	// Retourne
-    //Page<Appartement> findByUtilisateurNom(String nomUtilisateur, Pageable pageable);
-    
+	    
     // Retourne tous les appartements pour un utilisateur donné (propriétaire).
     Page<Appartement> findByProprietaire(Utilisateur utilisateur, Pageable pageable);
 
@@ -26,4 +22,6 @@ public interface AppartementRepository extends JpaRepository<Appartement, Long> 
     Page<Appartement> findByPublicAppartementIsTrue(Pageable pageable);
 
 	List<Appartement> findAllByProprietaireNom(String currentUserName);
+	
+    List<Appartement> findByPublicAppartementTrue();
 }

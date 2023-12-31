@@ -3,9 +3,6 @@ package fr.quiniou.gestion_back.utilisateur;
 import java.util.List;
 import java.util.Set;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
-
 import fr.quiniou.gestion_back.appartement.Appartement;
 import fr.quiniou.gestion_back.role.Role;
 import jakarta.persistence.CascadeType;
@@ -36,7 +33,6 @@ public class Utilisateur {
     private String telNumero;
     
     @OneToMany(mappedBy = "proprietaire", cascade = CascadeType.REMOVE)
-	@JsonManagedReference
     private List<Appartement> appartements;
     
     @ManyToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL)

@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -29,26 +28,29 @@ import fr.quiniou.gestion_back.utilisateur.UtilisateurRepository;
 @RequestMapping("/api/auth")
 public class AuthController {
 
-	@Autowired
-	private UtilisateurRepository utilisateurRepository;
+	private final UtilisateurRepository utilisateurRepository;
+    private final InvitationRepository invitationRepository;
+    private final RoleRepository roleRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtUtils jwtUtils;
+    private final CustomUtilisateurDetailsService customUtilisateurDetailsService;
 
-	@Autowired
-	InvitationRepository invitationRepository;
-
-	@Autowired
-	private RoleRepository roleRepository;
-
-	@Autowired
-	private PasswordEncoder passwordEncoder;
-
-	@Autowired
-	private JwtUtils jwtUtils;
-
-	@Autowired
-	private CustomUtilisateurDetailsService customUtilisateurDetailsService;
+    public AuthController(UtilisateurRepository utilisateurRepository,
+                          InvitationRepository invitationRepository,
+                          RoleRepository roleRepository,
+                          PasswordEncoder passwordEncoder,
+                          JwtUtils jwtUtils,
+                          CustomUtilisateurDetailsService customUtilisateurDetailsService) {
+        this.utilisateurRepository = utilisateurRepository;
+        this.invitationRepository = invitationRepository;
+        this.roleRepository = roleRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtUtils = jwtUtils;
+        this.customUtilisateurDetailsService = customUtilisateurDetailsService;
+    }
 
 	@PostMapping("/inscription")
-	public ResponseEntity<?> registerUser(@RequestBody InscriptionRequest inscriptionRequest) {
+	public ResponseEntity<String> registerUser(@RequestBody InscriptionRequest inscriptionRequest) {
 		try {
 			// Vérifier le code d'invitation
 			Invitation invitation = invitationRepository.findByMdp(inscriptionRequest.getCodeInvitation())
@@ -107,12 +109,12 @@ public class AuthController {
 	}
 
 	@PostMapping("/connexion")
-	public ResponseEntity<?> authenticateUser(@RequestBody Utilisateur loginRequest) {
+	public ResponseEntity<String> authenticateUser(@RequestBody Utilisateur loginRequest) {
 		try {
 			UserDetails userDetails = customUtilisateurDetailsService.loadUserByUsername(loginRequest.getNom());
 			if (passwordEncoder.matches(loginRequest.getMdp(), userDetails.getPassword())) {
 				List<String> roles = userDetails.getAuthorities().stream().map(GrantedAuthority::getAuthority)
-						.collect(Collectors.toList());
+						.toList(); 
 				String jwt = jwtUtils.generateJwtToken(userDetails.getUsername(), roles);
 				return ResponseEntity.ok(jwt);
 			} else {

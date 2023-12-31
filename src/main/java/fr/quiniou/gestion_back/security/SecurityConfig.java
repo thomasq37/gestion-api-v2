@@ -20,6 +20,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import fr.quiniou.gestion_back.security.jwt.AuthEntryPointJwt;
 import fr.quiniou.gestion_back.security.jwt.AuthTokenFilter;
+import fr.quiniou.gestion_back.security.jwt.JwtUtils;
 
 @Configuration
 @EnableWebSecurity
@@ -27,15 +28,20 @@ import fr.quiniou.gestion_back.security.jwt.AuthTokenFilter;
 public class SecurityConfig {
 
     
-    private final AuthEntryPointJwt unauthorizedHandler;
+    private final AuthEntryPointJwt unauthorizedHandler; 
+    private final JwtUtils jwtUtils;
+    private final CustomUtilisateurDetailsService customUtilisateurDetailsService;
+
     
-    public SecurityConfig(AuthEntryPointJwt unauthorizedHandler) {
+    public SecurityConfig(AuthEntryPointJwt unauthorizedHandler, JwtUtils jwtUtils, CustomUtilisateurDetailsService customUtilisateurDetailsService) {
     	this.unauthorizedHandler = unauthorizedHandler;
+    	this.jwtUtils = jwtUtils;
+    	this.customUtilisateurDetailsService = customUtilisateurDetailsService;
     }
 
     @Bean
     public AuthTokenFilter authenticationJwtTokenFilter() {
-        return new AuthTokenFilter();
+        return new AuthTokenFilter(jwtUtils, customUtilisateurDetailsService);
     }
 
     @Bean
@@ -59,7 +65,7 @@ public class SecurityConfig {
     {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.asList("http://localhost:4200"));
-        configuration.setAllowedMethods(Arrays.asList("GET","POST", "PUT", "OPTIONS"));
+        configuration.setAllowedMethods(Arrays.asList("GET","POST", "PUT", "OPTIONS", "DELETE", "PATCH"));
 configuration.setAllowedHeaders(List.of("*"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
